@@ -86,12 +86,10 @@ class BraceletUI(QtWidgets.QDialog):
         # Dictionary to store kay value pairs for .isChecked()
         self.material_checkboxes = {}
 
-        materials = ['Beads', 'Leather', 'Rope', 'Chain', 'Plate']
+        materials = ['Beads', 'Leather', 'Chain']
         # Adds a checkbox to every material in list
         for item, material_type in enumerate(materials):
             checkbox = QtWidgets.QCheckBox(material_type)
-            # Notes the marked status to material_choice_limiter
-            checkbox.stateChanged.connect(self.material_choice_limiter)
 
             self.material_checkboxes[material_type] = checkbox
             layout.addWidget(checkbox, item // 3, item % 3)
@@ -106,11 +104,11 @@ class BraceletUI(QtWidgets.QDialog):
         # Dictionary to store kay value pairs for .isChecked()
         self.texture_checkboxes = {}
 
-        texture_categories = ['Beads', 'Rope_Leather']
-        texture_options = [['Wood', 'Pearl', 'Metal'],
-                           ['Smooth', 'Normal', 'Rough']]
+        texture_categories = ['Beads', 'Leather']
+        texture_options = [['Wood', 'Pearl',],
+                           ['Smooth', 'Rough']]
     
-        # Pairs the loops together creating ('Beads', ['Wood', 'Pearl', 'Metal'])
+        # Pairs the loops together creating ('Beads', ['Wood', 'Pearl'])
         for category, options in zip(texture_categories, texture_options):
             row = QtWidgets.QHBoxLayout()
             # Two rows with Labels determind by the category
@@ -121,7 +119,7 @@ class BraceletUI(QtWidgets.QDialog):
             for texture_type in options:
                 name = f"{category}_{texture_type}"
                 checkbox = QtWidgets.QCheckBox(texture_type)
-            # Notes the marked status to material_choice_limiter
+            # Notes the marked status to texture_choice_limiter
                 checkbox.stateChanged.connect(self.texture_choice_limiter)
 
                 self.texture_checkboxes[name] = checkbox
@@ -139,7 +137,7 @@ class BraceletUI(QtWidgets.QDialog):
         # Dictionary to store Label. Swatch, and Color
         self.color_widgets = {}
 
-        material_categories = ['Beads', 'Rope_Leather', 'Metal']
+        material_categories = ['Beads', 'Leather', 'Chain']
         # Labels for every material type om row layout
         for material_type in material_categories:
             row = QtWidgets.QHBoxLayout()
@@ -195,7 +193,7 @@ class BraceletUI(QtWidgets.QDialog):
         # Every finish in list gets a checkbox
         for types, finish in enumerate(finishes):
             checkbox = QtWidgets.QCheckBox(finish)
-            # Notes the marked status to material_choice_limiter
+            # Notes the marked status to finish_choice_limiter
             checkbox.stateChanged.connect(self.finish_choice_limiter)
 
             self.finish_checkboxes[finish] = checkbox
@@ -214,29 +212,11 @@ class BraceletUI(QtWidgets.QDialog):
         layout.addWidget(generate_btn)
         self.layout.addLayout(layout)
 
-    def material_choice_limiter(self):
-        """UI Function that Limits Materials to Three"""
-        selected = []
-        # If the materials checkbox is checked it appends to seleted
-        for item, material_type in self.material_checkboxes.items():
-            if material_type.isChecked():
-                selected.append(item)
-        # If amount selected is >=3 then other materials are disabled
-        if len(selected) >= 3:
-            for item, material_type in self.material_checkboxes.items():
-                if item not in selected:
-                    material_type.setEnabled(False)
-        else:
-            for material_type in self.material_checkboxes.values():
-                material_type.setEnabled(True)
-
     def texture_choice_limiter(self):
         """UI Function that Limits Texture to One"""
-        texture_groups = {'Beads': ['Beads_Wood', 'Beads_Pearl',
-                                    'Beads_Metal'], 'Rope_Leather':
-                                   ['Rope_Leather_Smooth',
-                                    'Rope_Leather_Normal',
-                                    'Rope_Leather_Rough']}
+        texture_groups = {'Beads': ['Beads_Wood', 'Beads_Pearl'],
+                                    'Leather': ['Leather_Smooth',
+                                                'Leather_Rough']}
         for group, textures in texture_groups.items():
             selected = []
             # If the texturse checkbox is checked it appends to seleted
