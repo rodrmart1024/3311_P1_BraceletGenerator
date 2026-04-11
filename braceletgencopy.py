@@ -18,6 +18,7 @@ def generate_bracelet_curve(bracelet_length):
 
     return circle_curve
 
+
 def build_beads(curve, width):
     """Function that Creates and Returns Bead Geometry"""
     beads = []
@@ -37,6 +38,28 @@ def build_beads(curve, width):
         beads.append(bead)
 
     return cmds.group(beads, name='beads_geo')
+
+
+def build_leather(curve, width):
+    """Function that Creates and Returns Leather Geometry"""
+    # A conversion chart for values saved in y_scale
+    yscale_conversion = {
+        1: 1.4,
+        2: 2.0,
+        3: 2.4
+    }
+    y_scale = yscale_conversion.get(width, 1.4)
+
+    before = set(cmds.ls(type='transform'))
+    cmds.sweepMeshFromCurve(curve)
+    after = set(cmds.ls(type='transform'))
+    # In order for scaling to work with the latest bracelet generated
+    # Finds the latest [0] sweep transform node
+    sweep_transform = list(after - before)[0]
+    cmds.setAttr(f"{sweep_transform}.scaleY", y_scale)
+
+    cmds.rename(sweep_transform, "leather_geo")
+    return cmds.group("leather_geo", name="leather_grp")
 
 
 class BraceletUI(QtWidgets.QDialog):
@@ -107,7 +130,7 @@ class BraceletUI(QtWidgets.QDialog):
         texture_categories = ['Beads', 'Leather']
         texture_options = [['Wood', 'Pearl',],
                            ['Smooth', 'Rough']]
-    
+
         # Pairs the loops together creating ('Beads', ['Wood', 'Pearl'])
         for category, options in zip(texture_categories, texture_options):
             row = QtWidgets.QHBoxLayout()
@@ -264,6 +287,9 @@ class BraceletUI(QtWidgets.QDialog):
         # If materials are selected then calls to thier build function
         if 'Beads' in selected_materials:
             build_beads(curve, bracelet_width)
+        if 'Leather' in selected_materials:
+            build_leather(curve, bracelet_width)
+
 
 class ColorSwatch(QtWidgets.QLabel):
     """Dedicated class for ColorSwatch"""
@@ -271,6 +297,7 @@ class ColorSwatch(QtWidgets.QLabel):
 
     def mousePressEvent(self, event):
         self.clicked.emit()
+
 
 def show_ui():
     """Dedicated funtion to call for UI"""
