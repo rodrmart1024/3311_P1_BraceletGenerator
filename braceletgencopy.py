@@ -10,7 +10,7 @@ def get_maya_main_win():
     return wrapInstance(int(main_win_addr), QtWidgets.QWidget)
 
 
-def generate_bracelet_curve(bracelet_length):
+def build_bracelet_curve(bracelet_length):
     """Function that Creates and Returns Bracelet Curve"""
     circle_curve = cmds.circle(name='bracelet_curve',
                                radius=bracelet_length * 2,
@@ -19,39 +19,39 @@ def generate_bracelet_curve(bracelet_length):
     return circle_curve
 
 
-def build_beads(curve, width):
+def build_beads(circle_curve, width_slider, color):
     """Function that Creates and Returns Bead Geometry"""
     beads = []
     # Creating the placement of beads to be next to eachother
-    length = cmds.arclen(curve)
-    spacing = width * 2
+    length = cmds.arclen(circle_curve)
+    spacing = width_slider * 2
     amount = int(length / spacing)
 
     # Loop that appends spheres along the curve using pathAnimation
     for bead_index in range(amount):
-        bead = cmds.polySphere(radius=width)[0]
+        bead = cmds.polySphere(radius=width_slider)[0]
 
-        motion = cmds.pathAnimation(bead, curve=curve, follow=True,
+        motion = cmds.pathAnimation(bead, curve=circle_curve, follow=True,
                                     fractionMode=True)
         cmds.cutKey(motion)
         cmds.setAttr(f"{motion}.uValue", bead_index / float(amount))
         beads.append(bead)
-
+    # Beads 'sphere' are placed into beads_geo sent for texture and color
     bead_group = cmds.group(beads, name='beads_geo')
-    build_bead_texture(bead_group)
+    build_bead_texture(bead_group, color)
     return bead_group
 
 
-def build_bead_texture(bead_group):
+def build_bead_texture(bead_group, color):
     # lambert wood shader node
-    lambert_material = cmds.shadingNode('lambert', asShader=True,
+    wood_lambert_mat = cmds.shadingNode('lambert', asShader=True,
                                         name='wood_lambert')
 
     # Shader group connected to the outColor of lambert being wood
-    shading_group = cmds.sets(renderable=True, noSurfaceShader=True,
+    wood_shading_grp = cmds.sets(renderable=True, noSurfaceShader=True,
                               empty=True, name='wood_lambertSG')
-    cmds.connectAttr(f'{lambert_material}.outColor',
-                     f'{shading_group}.surfaceShader')
+    cmds.connectAttr(f'{wood_lambert_mat}.outColor',
+                     f'{wood_shading_grp}.surfaceShader')
 
     # A 3d nodes instead of wrapping image onto surface
     place3d = cmds.shadingNode('place3dTexture', asUtility=True,
@@ -60,15 +60,22 @@ def build_bead_texture(bead_group):
 
     cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
                      f'{wood_textur}.placementMatrix')
-    cmds.connectAttr(f'{wood_textur}.outColor', f'{lambert_material}.color')
+    cmds.connectAttr(f'{wood_textur}.outColor', f'{wood_lambert_mat}.color')
+
+    # Connecting the wood color swatch to the fillerColor and vienColor
+    # RGB vein is dark
+    r, g, b = color[0]/255, color[1]/255, color[2]/255
+    cmds.setAttr(f'{wood_textur}.fillerColor', r, g, b, type='double3')
+    cmds.setAttr(f'{wood_textur}.veinColor', r * 0.2, g * 0.2, b * 0.2, type='double3')
+    cmds.setAttr(f'{wood_textur}.layerSize', 0.5)
 
     # Connecting all beads to the wood shader
     all_beads = cmds.listRelatives(bead_group, allDescendents=True, type='mesh')
     for bead in all_beads:
-        cmds.sets(bead, edit=True, forceElement=shading_group)
+        cmds.sets(bead, edit=True, forceElement=wood_shading_grp)
 
 
-def build_leather(curve, width):
+def build_leather(circle_curve, width_slider, color):
     """Function that Creates and Returns Leather Geometry"""
     # A conversion chart for values saved in y_scale
     yscale_conversion = {
@@ -76,33 +83,33 @@ def build_leather(curve, width):
         2: 2.0,
         3: 2.4
     }
-    y_scale = yscale_conversion.get(width, 1.4)
+    y_scale = yscale_conversion.get(width_slider, 1.4)
 
-    before = set(cmds.ls(type='transform'))
-    cmds.sweepMeshFromCurve(curve)
-    after = set(cmds.ls(type='transform'))
+    old_transforms = set(cmds.ls(type='transform'))
+    cmds.sweepMeshFromCurve(circle_curve)
+    new_transforms = set(cmds.ls(type='transform'))
     # In order for scaling to work with the latest bracelet generated
     # Finds the latest [0] sweep transform node
-    sweep_transform = list(after - before)[0]
+    sweep_transform = list(new_transforms - old_transforms)[0]
     cmds.setAttr(f"{sweep_transform}.scaleY", y_scale)
 
     # Applies leather texture to the sweep geometry
     leather_geo = cmds.rename(sweep_transform, "leather_geo#")
     leather_grp = cmds.group(leather_geo, name="leather_grp#")
-    build_leather_texture(leather_grp)
+    build_leather_texture(leather_grp, color)
     return leather_grp
 
 
-def build_leather_texture(leather_grp):
+def build_leather_texture(leather_grp, color):
     # lambert leather shader node
-    lambert_material = cmds.shadingNode('lambert', asShader=True,
+    leather_lambert_mat  = cmds.shadingNode('lambert', asShader=True,
                                         name='leather_lambert')
 
     # Shader group connected to the outColor of lambert being wood
-    shading_group = cmds.sets(renderable=True, noSurfaceShader=True,
+    leather_shading_grp  = cmds.sets(renderable=True, noSurfaceShader=True,
                               empty=True, name='leather_lambertSG')
-    cmds.connectAttr(f'{lambert_material}.outColor',
-                     f'{shading_group}.surfaceShader')
+    cmds.connectAttr(f'{leather_lambert_mat}.outColor',
+                     f'{leather_shading_grp}.surfaceShader')
 
     # A 3d nodes instead of wrapping image onto surface
     place3d = cmds.shadingNode('place3dTexture', asUtility=True,
@@ -112,10 +119,16 @@ def build_leather_texture(leather_grp):
 
     cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
                      f'{leather_texture}.placementMatrix')
-    cmds.connectAttr(f'{leather_texture}.outColor', f'{lambert_material}.color')
+    cmds.connectAttr(f'{leather_texture}.outColor', f'{leather_lambert_mat}.color')
+
+    # Connecting the wood color swatch to the cellColor and creaseColor
+    # RGB crease is 1/2 dark
+    r, g, b = color[0]/255, color[1]/255, color[2]/255
+    cmds.setAttr(f'{leather_texture}.cellColor', r, g, b, type='double3')
+    cmds.setAttr(f'{leather_texture}.creaseColor', r * 0.5, g * 0.5, b * 0.5, type='double3')
 
     leather_mesh = cmds.listRelatives(leather_grp, allDescendents=True, type='mesh')[0]
-    cmds.sets(leather_mesh, edit=True, forceElement=shading_group)
+    cmds.sets(leather_mesh, edit=True, forceElement=leather_shading_grp)
 
 
 class BraceletUI(QtWidgets.QDialog):
@@ -131,37 +144,37 @@ class BraceletUI(QtWidgets.QDialog):
         self.material_checkboxes_ui()
         self.texture_checkboxes_ui()
         self.color_swatch_ui()
-        self.finish__checkboxes_ui()
+        self.finish_checkboxes_ui()
         self.bracelet_button_ui()
 
     def lengthwidth_sliders_ui(self):
         """Function that Creates Sliders for Length and Width"""
 
-        group = QtWidgets.QGroupBox('Size:')
-        layout = QtWidgets.QVBoxLayout()
+        lwslider_group = QtWidgets.QGroupBox('Size:')
+        lwsliders_layout = QtWidgets.QVBoxLayout()
 
         # Labeled QSliders with Mins and Maxs configured to QVBoxLayout
         # Length
         self.length_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.length_slider.setMinimum(1)
         self.length_slider.setMaximum(4)
-        layout.addWidget(QtWidgets.QLabel("Length"))
-        layout.addWidget(self.length_slider)
+        lwsliders_layout.addWidget(QtWidgets.QLabel("Length"))
+        lwsliders_layout.addWidget(self.length_slider)
 
         # Width
         self.width_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.width_slider.setMinimum(1)
         self.width_slider.setMaximum(3)
-        layout.addWidget(QtWidgets.QLabel("Width"))
-        layout.addWidget(self.width_slider)
+        lwsliders_layout.addWidget(QtWidgets.QLabel("Width"))
+        lwsliders_layout.addWidget(self.width_slider)
 
-        group.setLayout(layout)
-        self.layout.addWidget(group)
+        lwslider_group.setLayout(lwsliders_layout)
+        self.layout.addWidget(lwslider_group)
 
     def material_checkboxes_ui(self):
         """Creates Checkboxes for Materials"""
-        group = QtWidgets.QGroupBox('Materials:')
-        layout = QtWidgets.QGridLayout()
+        material_chebox_group = QtWidgets.QGroupBox('Materials:')
+        material_chebox_layout = QtWidgets.QGridLayout()
         # Dictionary to store kay value pairs for .isChecked()
         self.material_checkboxes = {}
 
@@ -171,21 +184,20 @@ class BraceletUI(QtWidgets.QDialog):
             checkbox = QtWidgets.QCheckBox(material_type)
 
             self.material_checkboxes[material_type] = checkbox
-            layout.addWidget(checkbox, item // 3, item % 3)
+            material_chebox_layout.addWidget(checkbox, item // 3, item % 3)
 
-        group.setLayout(layout)
-        self.layout.addWidget(group)
+        material_chebox_group.setLayout(material_chebox_layout)
+        self.layout.addWidget(material_chebox_group)
 
     def texture_checkboxes_ui(self):
         """Checkboxes for Material Texture & Formating Label"""
-        group = QtWidgets.QGroupBox("Material Texture:")
-        layout = QtWidgets.QVBoxLayout()
+        texture_chebox_group  = QtWidgets.QGroupBox("Material Texture:")
+        texture_chebox_layout  = QtWidgets.QVBoxLayout()
         # Dictionary to store kay value pairs for .isChecked()
         self.texture_checkboxes = {}
 
         texture_categories = ['Beads', 'Leather']
-        texture_options = [['Wood', 'Pearl',],
-                           ['Smooth', 'Rough']]
+        texture_options = [['Wood', 'Pearl',],['Smooth', 'Rough']]
 
         # Pairs the loops together creating ('Beads', ['Wood', 'Pearl'])
         for category, options in zip(texture_categories, texture_options):
@@ -204,15 +216,15 @@ class BraceletUI(QtWidgets.QDialog):
                 self.texture_checkboxes[name] = checkbox
                 row.addWidget(checkbox)
 
-            layout.addLayout(row)
+            texture_chebox_layout.addLayout(row)
 
-        group.setLayout(layout)
-        self.layout.addWidget(group)
+        texture_chebox_group.setLayout(texture_chebox_layout)
+        self.layout.addWidget(texture_chebox_group)
 
     def color_swatch_ui(self):
         """Color picker for Material Color"""
-        group = QtWidgets.QGroupBox("Material Color:")
-        layout = QtWidgets.QVBoxLayout()
+        color_swatch_group = QtWidgets.QGroupBox("Material Color:")
+        color_swatch_layout = QtWidgets.QVBoxLayout()
         # Dictionary to store Label. Swatch, and Color
         self.color_widgets = {}
 
@@ -230,23 +242,18 @@ class BraceletUI(QtWidgets.QDialog):
             swatch.setStyleSheet("background-color: rgb(255, 255, 255);")
 
             # If color swatch is clicked it connects material to color_picker
-            swatch.clicked.connect(
-                lambda material_type=material_type:
-                self.color_picker(material_type)
-            )
+            swatch.clicked.connect(lambda material_type=material_type:
+                self.color_picker(material_type))
 
             row.addWidget(swatch)
-
             # Data stored inside of color_widgets
-            self.color_widgets[material_type] = {
-                "swatch": swatch,
-                "color": (255, 255, 255)
-            }
+            self.color_widgets[material_type] = {"swatch": swatch,
+                "color": (255, 255, 255)}
 
-            layout.addLayout(row)
+            color_swatch_layout.addLayout(row)
 
-        group.setLayout(layout)
-        self.layout.addWidget(group)
+        color_swatch_group.setLayout(color_swatch_layout)
+        self.layout.addWidget(color_swatch_group)
 
     def color_picker(self, material_type):
         color = QtWidgets.QColorDialog.getColor()
@@ -259,13 +266,12 @@ class BraceletUI(QtWidgets.QDialog):
 
             # Swatch color gets updated when color selection closes
             self.color_widgets[material_type]["swatch"].setStyleSheet(
-                f"background-color: rgb{rgb};"
-            )
+                f"background-color: rgb{rgb};")
 
-    def finish__checkboxes_ui(self):
+    def finish_checkboxes_ui(self):
         """Checkboxes for Material Finish"""
-        group = QtWidgets.QGroupBox("Finish:")
-        layout = QtWidgets.QGridLayout()
+        finish_chebox_group = QtWidgets.QGroupBox("Finish:")
+        finish_chebox_layout = QtWidgets.QGridLayout()
         # Dictionary to store kay value pairs for .isChecked()
         self.finish_checkboxes = {}
 
@@ -277,20 +283,20 @@ class BraceletUI(QtWidgets.QDialog):
             checkbox.stateChanged.connect(self.finish_choice_limiter)
 
             self.finish_checkboxes[finish] = checkbox
-            layout.addWidget(checkbox, types // 3, types % 3)
+            finish_chebox_layout.addWidget(checkbox, types // 3, types % 3)
 
-        group.setLayout(layout)
-        self.layout.addWidget(group)
+        finish_chebox_group.setLayout(finish_chebox_layout)
+        self.layout.addWidget(finish_chebox_group)
 
     def bracelet_button_ui(self):
         """Buttons for Generating Bracelet"""
-        layout = QtWidgets.QHBoxLayout()
+        bracelet_button_layout = QtWidgets.QHBoxLayout()
         # If button is clicked it connects to generate_bracelet
         generate_btn = QtWidgets.QPushButton('Generate Bracelet')
         generate_btn.clicked.connect(self.generate_bracelet)
 
-        layout.addWidget(generate_btn)
-        self.layout.addLayout(layout)
+        bracelet_button_layout.addWidget(generate_btn)
+        self.layout.addLayout(bracelet_button_layout)
 
     def texture_choice_limiter(self):
         """UI Function that Limits Texture to One"""
@@ -332,7 +338,7 @@ class BraceletUI(QtWidgets.QDialog):
         """Generates bracelet by calling calling functions"""
         # Gets the length and width slider values
         bracelet_length = self.length_slider.value()
-        bracelet_width = self.width_slider.value()
+        width_slider = self.width_slider.value()
 
         selected_materials = []
         # Gets the checked material and appends them to selected_materials
@@ -340,12 +346,14 @@ class BraceletUI(QtWidgets.QDialog):
             if checkbox.isChecked():
                 selected_materials.append(name)
         # Gets the bracelet curve using the bracelet length
-        curve = generate_bracelet_curve(bracelet_length)
+        circle_curve = build_bracelet_curve(bracelet_length)
         # If materials are selected then calls to thier build function
         if 'Beads' in selected_materials:
-            build_beads(curve, bracelet_width)
+            bead_color = self.color_widgets['Beads']['color']
+            build_beads(circle_curve, width_slider, bead_color)
         if 'Leather' in selected_materials:
-            build_leather(curve, bracelet_width)
+            leather_color = self.color_widgets['Leather']['color']
+            build_leather(circle_curve, width_slider, leather_color)
 
 
 class ColorSwatch(QtWidgets.QLabel):
