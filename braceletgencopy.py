@@ -87,8 +87,8 @@ def build_leather(curve, width):
     cmds.setAttr(f"{sweep_transform}.scaleY", y_scale)
 
     # Applies leather texture to the sweep geometry
-    cmds.rename(sweep_transform, "leather_geo")
-    leather_grp = cmds.group("leather_geo", name="leather_grp")
+    leather_geo = cmds.rename(sweep_transform, "leather_geo#")
+    leather_grp = cmds.group(leather_geo, name="leather_grp#")
     build_leather_texture(leather_grp)
     return leather_grp
 
