@@ -86,8 +86,36 @@ def build_leather(curve, width):
     sweep_transform = list(after - before)[0]
     cmds.setAttr(f"{sweep_transform}.scaleY", y_scale)
 
+    # Applies leather texture to the sweep geometry
     cmds.rename(sweep_transform, "leather_geo")
-    return cmds.group("leather_geo", name="leather_grp")
+    leather_grp = cmds.group("leather_geo", name="leather_grp")
+    build_leather_texture(leather_grp)
+    return leather_grp
+
+
+def build_leather_texture(leather_grp):
+    # lambert leather shader node
+    lambert_material = cmds.shadingNode('lambert', asShader=True,
+                                        name='leather_lambert')
+
+    # Shader group connected to the outColor of lambert being wood
+    shading_group = cmds.sets(renderable=True, noSurfaceShader=True,
+                              empty=True, name='leather_lambertSG')
+    cmds.connectAttr(f'{lambert_material}.outColor',
+                     f'{shading_group}.surfaceShader')
+
+    # A 3d nodes instead of wrapping image onto surface
+    place3d = cmds.shadingNode('place3dTexture', asUtility=True,
+                               name='leather_place3d')
+    leather_texture = cmds.shadingNode('leather', asTexture=True,
+                                       name='leather_texture')
+
+    cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
+                     f'{leather_texture}.placementMatrix')
+    cmds.connectAttr(f'{leather_texture}.outColor', f'{lambert_material}.color')
+
+    leather_mesh = cmds.listRelatives(leather_grp, allDescendents=True, type='mesh')[0]
+    cmds.sets(leather_mesh, edit=True, forceElement=shading_group)
 
 
 class BraceletUI(QtWidgets.QDialog):
