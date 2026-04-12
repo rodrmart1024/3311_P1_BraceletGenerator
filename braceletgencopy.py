@@ -37,7 +37,35 @@ def build_beads(curve, width):
         cmds.setAttr(f"{motion}.uValue", bead_index / float(amount))
         beads.append(bead)
 
-    return cmds.group(beads, name='beads_geo')
+    bead_group = cmds.group(beads, name='beads_geo')
+    build_bead_texture(bead_group)
+    return bead_group
+
+
+def build_bead_texture(bead_group):
+    # lambert wood shader node
+    lambert_material = cmds.shadingNode('lambert', asShader=True,
+                                        name='wood_lambert')
+
+    # Shader group connected to the outColor of lambert being wood
+    shading_group = cmds.sets(renderable=True, noSurfaceShader=True,
+                              empty=True, name='wood_lambertSG')
+    cmds.connectAttr(f'{lambert_material}.outColor',
+                     f'{shading_group}.surfaceShader')
+
+    # A 3d nodes instead of wrapping image onto surface
+    place3d = cmds.shadingNode('place3dTexture', asUtility=True,
+                               name='wood_place3d')
+    wood_textur = cmds.shadingNode('wood', asTexture=True, name='wood_texture')
+
+    cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
+                     f'{wood_textur}.placementMatrix')
+    cmds.connectAttr(f'{wood_textur}.outColor', f'{lambert_material}.color')
+
+    # Connecting all beads to the wood shader
+    all_beads = cmds.listRelatives(bead_group, allDescendents=True, type='mesh')
+    for bead in all_beads:
+        cmds.sets(bead, edit=True, forceElement=shading_group)
 
 
 def build_leather(curve, width):
@@ -173,9 +201,10 @@ class BraceletUI(QtWidgets.QDialog):
             swatch.setFixedSize(100, 20)
             swatch.setStyleSheet("background-color: rgb(255, 255, 255);")
 
-            # If color swatch is clicked then it connects material to color_picker
+            # If color swatch is clicked it connects material to color_picker
             swatch.clicked.connect(
-                lambda material_type=material_type: self.color_picker(material_type)
+                lambda material_type=material_type:
+                self.color_picker(material_type)
             )
 
             row.addWidget(swatch)
