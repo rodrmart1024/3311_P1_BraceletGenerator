@@ -169,14 +169,13 @@ class BraceletUI(QtWidgets.QDialog):
         """Creating the Window and calling out to functions"""
         super().__init__(parent=get_maya_main_win())
         self.setWindowTitle("Bracelet Generator")
-        self.resize(400, 600)
+        self.resize(400, 400)
         self.layout = QtWidgets.QVBoxLayout(self)
 
         self.lengthwidth_sliders_ui()
         self.material_checkboxes_ui()
         self.texture_checkboxes_ui()
         self.color_swatch_ui()
-        self.finish_checkboxes_ui()
         self.bracelet_button_ui()
 
     def lengthwidth_sliders_ui(self):
@@ -210,7 +209,7 @@ class BraceletUI(QtWidgets.QDialog):
         # Dictionary to store kay value pairs for .isChecked()
         self.material_checkboxes = {}
 
-        materials = ['Beads', 'Leather', 'Chain']
+        materials = ['Beads', 'Leather']
         # Adds a checkbox to every material in list
         for item, material_type in enumerate(materials):
             checkbox = QtWidgets.QCheckBox(material_type)
@@ -260,7 +259,7 @@ class BraceletUI(QtWidgets.QDialog):
         # Dictionary to store Label. Swatch, and Color
         self.color_widgets = {}
 
-        material_categories = ['Beads', 'Leather', 'Chain']
+        material_categories = ['Beads', 'Leather']
         # Labels for every material type om row layout
         for material_type in material_categories:
             row = QtWidgets.QHBoxLayout()
@@ -300,26 +299,6 @@ class BraceletUI(QtWidgets.QDialog):
             self.color_widgets[material_type]["swatch"].setStyleSheet(
                 f"background-color: rgb{rgb};")
 
-    def finish_checkboxes_ui(self):
-        """Checkboxes for Material Finish"""
-        finish_chebox_group = QtWidgets.QGroupBox("Finish:")
-        finish_chebox_layout = QtWidgets.QGridLayout()
-        # Dictionary to store kay value pairs for .isChecked()
-        self.finish_checkboxes = {}
-
-        finishes = ['Worn', 'New', 'Polished']
-        # Every finish in list gets a checkbox
-        for types, finish in enumerate(finishes):
-            checkbox = QtWidgets.QCheckBox(finish)
-            # Notes the marked status to finish_choice_limiter
-            checkbox.stateChanged.connect(self.finish_choice_limiter)
-
-            self.finish_checkboxes[finish] = checkbox
-            finish_chebox_layout.addWidget(checkbox, types // 3, types % 3)
-
-        finish_chebox_group.setLayout(finish_chebox_layout)
-        self.layout.addWidget(finish_chebox_group)
-
     def bracelet_button_ui(self):
         """Buttons for Generating Bracelet"""
         bracelet_button_layout = QtWidgets.QHBoxLayout()
@@ -349,22 +328,6 @@ class BraceletUI(QtWidgets.QDialog):
             else:
                 for texture_type in textures:
                     self.texture_checkboxes[texture_type].setEnabled(True)
-
-    def finish_choice_limiter(self):
-        """UI Function that Limits Finish to One"""
-        selected = []
-        # If the finish checkbox is checked it appends to seleted
-        for name, checkbox in self.finish_checkboxes.items():
-            if checkbox.isChecked():
-                selected.append(name)
-        # If amount selected is 1 then other finishes are disabled
-        if len(selected) >= 1:
-            for name, checkbox in self.finish_checkboxes.items():
-                if name not in selected:
-                    checkbox.setEnabled(False)
-        else:
-            for checkbox in self.finish_checkboxes.values():
-                checkbox.setEnabled(True)
 
     def generate_bracelet(self):
         """Generates bracelet by calling calling functions"""
