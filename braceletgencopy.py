@@ -19,10 +19,9 @@ def build_bracelet_curve(bracelet_length):
     return circle_curve
 
 
-def build_beads(circle_curve, width_slider, color):
+def build_beads(circle_curve, width_slider):
     """Function that Creates and Returns Bead Geometry"""
     beads = []
-    texture_checkboxes = []
 
     # Creating the placement of beads to be next to eachother
     length = cmds.arclen(circle_curve)
@@ -38,16 +37,12 @@ def build_beads(circle_curve, width_slider, color):
         cmds.cutKey(motion)
         cmds.setAttr(f"{motion}.uValue", bead_index / float(amount))
         beads.append(bead)
-    # Beads 'sphere' are placed into beads_geo sent for texture and color
+    # Beads 'spheres' are placed into beads_geo sent for texture and color
     bead_group = cmds.group(beads, name='beads_geo')
-
-    if 'Wood' in texture_checkboxes:
-        build_bead_texture(bead_group, color)
-    if 'Marble' in texture_checkboxes:
-        build_bead_marbletexture(bead_group, color)
     return bead_group
 
-def build_bead_texture(bead_group, color):
+
+def build_bead_wood_texture(bead_group, color):
     # lambert wood shader node
     wood_lambert_mat = cmds.shadingNode('lambert', asShader=True,
                                         name='wood_lambert')
@@ -81,11 +76,11 @@ def build_bead_texture(bead_group, color):
 
 
 def build_bead_marble_texture(bead_group, color):
-    # lambert wood shader node
+    # lambert marble shader node
     marble_lambert_mat = cmds.shadingNode('lambert', asShader=True,
                                         name='marble_lambert')
 
-    # Shader group connected to the outColor of lambert being wood
+    # Shader group connected to the outColor of lambert being marble
     marble_shading_grp = cmds.sets(renderable=True, noSurfaceShader=True,
                               empty=True, name='marble_lambertSG')
     cmds.connectAttr(f'{marble_lambert_mat}.outColor',
@@ -100,13 +95,13 @@ def build_bead_marble_texture(bead_group, color):
                      f'{marble_textur}.placementMatrix')
     cmds.connectAttr(f'{marble_textur}.outColor', f'{marble_lambert_mat}.color')
 
-    # Connecting the wood color swatch to the fillerColor and vienColor
+    # Connecting the marble color swatch to the fillerColor and vienColor
     # RGB vein is dark
     r, g, b = color[0]/255, color[1]/255, color[2]/255
     cmds.setAttr(f'{marble_textur}.fillerColor', r, g, b, type='double3')
     cmds.setAttr(f'{marble_textur}.veinColor', r * 0.2, g * 0.2, b * 0.2, type='double3')
 
-    # Connecting all beads to the wood shader
+    # Connecting all beads to the marble shader
     all_beads = cmds.listRelatives(bead_group, allDescendents=True, type='mesh')
     for bead in all_beads:
         cmds.sets(bead, edit=True, forceElement=marble_shading_grp)
@@ -142,7 +137,7 @@ def build_leather_texture(leather_grp, color):
     leather_lambert_mat  = cmds.shadingNode('lambert', asShader=True,
                                         name='leather_lambert')
 
-    # Shader group connected to the outColor of lambert being wood
+    # Shader group connected to the outColor of lambert being leather
     leather_shading_grp  = cmds.sets(renderable=True, noSurfaceShader=True,
                               empty=True, name='leather_lambertSG')
     cmds.connectAttr(f'{leather_lambert_mat}.outColor',
@@ -158,7 +153,7 @@ def build_leather_texture(leather_grp, color):
                      f'{leather_texture}.placementMatrix')
     cmds.connectAttr(f'{leather_texture}.outColor', f'{leather_lambert_mat}.color')
 
-    # Connecting the wood color swatch to the cellColor and creaseColor
+    # Connecting the leather color swatch to the cellColor and creaseColor
     # RGB crease is 1/2 dark
     r, g, b = color[0]/255, color[1]/255, color[2]/255
     cmds.setAttr(f'{leather_texture}.cellColor', r, g, b, type='double3')
@@ -373,21 +368,26 @@ class BraceletUI(QtWidgets.QDialog):
 
     def generate_bracelet(self):
         """Generates bracelet by calling calling functions"""
-        # Gets the length and width slider values
+        # Gets len wid slider values and creates a curve
         bracelet_length = self.length_slider.value()
         width_slider = self.width_slider.value()
-
+        circle_curve = build_bracelet_curve(bracelet_length)
         selected_materials = []
+        
         # Gets the checked material and appends them to selected_materials
         for name, checkbox in self.material_checkboxes.items():
             if checkbox.isChecked():
                 selected_materials.append(name)
-        # Gets the bracelet curve using the bracelet length
-        circle_curve = build_bracelet_curve(bracelet_length)
-        # If materials are selected then calls to thier build function
+        
+        # Calls to build material function if selected_materials
+        # Then calls to build material texture if checkboxes[].isChecked
         if 'Beads' in selected_materials:
             bead_color = self.color_widgets['Beads']['color']
-            build_beads(circle_curve, width_slider, bead_color)
+            bead_group = build_beads(circle_curve, width_slider)
+            if self.texture_checkboxes['Beads_Wood'].isChecked():
+                build_bead_wood_texture(bead_group, color)
+            else:
+                build_bead_marble_texture(bead_group, color)
         if 'Leather' in selected_materials:
             leather_color = self.color_widgets['Leather']['color']
             build_leather(circle_curve, width_slider, leather_color)
