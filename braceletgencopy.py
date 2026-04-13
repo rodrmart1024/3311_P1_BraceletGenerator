@@ -107,7 +107,7 @@ def build_bead_marble_texture(bead_group, color):
         cmds.sets(bead, edit=True, forceElement=marble_shading_grp)
 
 
-def build_leather(circle_curve, width_slider, color):
+def build_leather(circle_curve, width_slider, color, leather_texture='Smooth'):
     """Function that Creates and Returns Leather Geometry"""
     # A conversion chart for values saved in y_scale
     yscale_conversion = {
@@ -128,11 +128,11 @@ def build_leather(circle_curve, width_slider, color):
     # Applies leather texture to the sweep geometry
     leather_geo = cmds.rename(sweep_transform, "leather_geo#")
     leather_grp = cmds.group(leather_geo, name="leather_grp#")
-    build_leather_texture(leather_grp, color)
+    build_leather_texture(leather_grp, color, leather_texture)
     return leather_grp
 
 
-def build_leather_texture(leather_grp, color):
+def build_leather_texture(leather_grp, color, leather_texture='Smooth'):
     # lambert leather shader node
     leather_lambert_mat  = cmds.shadingNode('lambert', asShader=True,
                                         name='leather_lambert')
@@ -146,18 +146,24 @@ def build_leather_texture(leather_grp, color):
     # A 3d nodes instead of wrapping image onto surface
     place3d = cmds.shadingNode('place3dTexture', asUtility=True,
                                name='leather_place3d')
-    leather_texture = cmds.shadingNode('leather', asTexture=True,
+    leather_texture_node = cmds.shadingNode('leather', asTexture=True,
                                        name='leather_texture')
 
+    # Changing Leather Attributes
     cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
-                     f'{leather_texture}.placementMatrix')
-    cmds.connectAttr(f'{leather_texture}.outColor', f'{leather_lambert_mat}.color')
+                     f'{leather_texture_node}.placementMatrix')
+    cmds.connectAttr(f'{leather_texture_node}.outColor', f'{leather_lambert_mat}.color')
+    cmds.setAttr(f'{leather_texture_node}.density', 0.1)
+    
+    if leather_texture == 'Rough':
+        cmds.setAttr(f'{leather_texture_node}.cellSize', 0.0)
+        cmds.setAttr(f'{leather_texture_node}.density', 0.4)
 
     # Connecting the leather color swatch to the cellColor and creaseColor
     # RGB crease is 1/2 dark
     r, g, b = color[0]/255, color[1]/255, color[2]/255
-    cmds.setAttr(f'{leather_texture}.cellColor', r, g, b, type='double3')
-    cmds.setAttr(f'{leather_texture}.creaseColor', r * 0.5, g * 0.5, b * 0.5, type='double3')
+    cmds.setAttr(f'{leather_texture_node}.cellColor', r, g, b, type='double3')
+    cmds.setAttr(f'{leather_texture_node}.creaseColor', r * 0.5, g * 0.5, b * 0.5, type='double3')
 
     leather_mesh = cmds.listRelatives(leather_grp, allDescendents=True, type='mesh')[0]
     cmds.sets(leather_mesh, edit=True, forceElement=leather_shading_grp)
@@ -348,12 +354,15 @@ class BraceletUI(QtWidgets.QDialog):
             bead_color = self.color_widgets['Beads']['color']
             bead_group = build_beads(circle_curve, width_slider)
             if self.texture_checkboxes['Beads_Wood'].isChecked():
-                build_bead_wood_texture(bead_group, color)
+                build_bead_wood_texture(bead_group, bead_color)
             else:
-                build_bead_marble_texture(bead_group, color)
+                build_bead_marble_texture(bead_group, bead_color)
         if 'Leather' in selected_materials:
             leather_color = self.color_widgets['Leather']['color']
-            build_leather(circle_curve, width_slider, leather_color)
+            if self.texture_checkboxes['Leather_Rough'].isChecked():
+                build_leather(circle_curve, width_slider, leather_color, 'Rough')
+            else:
+                build_leather(circle_curve, width_slider, leather_color, 'Smooth')
 
 
 class ColorSwatch(QtWidgets.QLabel):
