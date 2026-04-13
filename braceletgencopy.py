@@ -22,6 +22,8 @@ def build_bracelet_curve(bracelet_length):
 def build_beads(circle_curve, width_slider, color):
     """Function that Creates and Returns Bead Geometry"""
     beads = []
+    texture_checkboxes = []
+
     # Creating the placement of beads to be next to eachother
     length = cmds.arclen(circle_curve)
     spacing = width_slider * 2
@@ -38,9 +40,12 @@ def build_beads(circle_curve, width_slider, color):
         beads.append(bead)
     # Beads 'sphere' are placed into beads_geo sent for texture and color
     bead_group = cmds.group(beads, name='beads_geo')
-    build_bead_texture(bead_group, color)
-    return bead_group
 
+    if 'Wood' in texture_checkboxes:
+        build_bead_texture(bead_group, color)
+    if 'Marble' in texture_checkboxes:
+        build_bead_marbletexture(bead_group, color)
+    return bead_group
 
 def build_bead_texture(bead_group, color):
     # lambert wood shader node
@@ -73,6 +78,38 @@ def build_bead_texture(bead_group, color):
     all_beads = cmds.listRelatives(bead_group, allDescendents=True, type='mesh')
     for bead in all_beads:
         cmds.sets(bead, edit=True, forceElement=wood_shading_grp)
+
+
+def build_bead_marble_texture(bead_group, color):
+    # lambert wood shader node
+    marble_lambert_mat = cmds.shadingNode('lambert', asShader=True,
+                                        name='marble_lambert')
+
+    # Shader group connected to the outColor of lambert being wood
+    marble_shading_grp = cmds.sets(renderable=True, noSurfaceShader=True,
+                              empty=True, name='marble_lambertSG')
+    cmds.connectAttr(f'{marble_lambert_mat}.outColor',
+                     f'{marble_shading_grp}.surfaceShader')
+
+    # A 3d nodes instead of wrapping image onto surface
+    place3d = cmds.shadingNode('place3dTexture', asUtility=True,
+                               name='marble_place3d')
+    marble_textur = cmds.shadingNode('marble', asTexture=True, name='marble_texture')
+
+    cmds.connectAttr(f'{place3d}.worldInverseMatrix[0]',
+                     f'{marble_textur}.placementMatrix')
+    cmds.connectAttr(f'{marble_textur}.outColor', f'{marble_lambert_mat}.color')
+
+    # Connecting the wood color swatch to the fillerColor and vienColor
+    # RGB vein is dark
+    r, g, b = color[0]/255, color[1]/255, color[2]/255
+    cmds.setAttr(f'{marble_textur}.fillerColor', r, g, b, type='double3')
+    cmds.setAttr(f'{marble_textur}.veinColor', r * 0.2, g * 0.2, b * 0.2, type='double3')
+
+    # Connecting all beads to the wood shader
+    all_beads = cmds.listRelatives(bead_group, allDescendents=True, type='mesh')
+    for bead in all_beads:
+        cmds.sets(bead, edit=True, forceElement=marble_shading_grp)
 
 
 def build_leather(circle_curve, width_slider, color):
@@ -197,9 +234,9 @@ class BraceletUI(QtWidgets.QDialog):
         self.texture_checkboxes = {}
 
         texture_categories = ['Beads', 'Leather']
-        texture_options = [['Wood', 'Pearl',],['Smooth', 'Rough']]
+        texture_options = [['Wood', 'Marble',],['Smooth', 'Rough']]
 
-        # Pairs the loops together creating ('Beads', ['Wood', 'Pearl'])
+        # Pairs the loops together creating ('Beads', ['Wood', 'Marble'])
         for category, options in zip(texture_categories, texture_options):
             row = QtWidgets.QHBoxLayout()
             # Two rows with Labels determind by the category
@@ -300,7 +337,7 @@ class BraceletUI(QtWidgets.QDialog):
 
     def texture_choice_limiter(self):
         """UI Function that Limits Texture to One"""
-        texture_groups = {'Beads': ['Beads_Wood', 'Beads_Pearl'],
+        texture_groups = {'Beads': ['Beads_Wood', 'Beads_Marble'],
                                     'Leather': ['Leather_Smooth',
                                                 'Leather_Rough']}
         for group, textures in texture_groups.items():
